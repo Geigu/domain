@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domain Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        header {
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px;
+            text-align: center;
+        }
+        header a {
+            color: #fff;
+            text-decoration: none;
+            margin: 0 15px;
+        }
+        .container {
+            margin-top: 20px;
+        }
+        textarea {
+            width: 80%;
+            height: 200px;
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        .controls input, .controls button, .controls select {
+            margin: 5px;
+            padding: 10px 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .controls input {
+            width: 200px;
+        }
+        .controls button:hover {
+            background-color: #ddd;
+        }
+        .split-container {
+            margin-top: 20px;
+        }
+        .split-section {
+            margin-bottom: 10px;
+        }
+        .split-section h3.checked {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="sorter.html">Domain Filter</a>
+        <a href="generator.html">Domain Generator</a>
+    </header>
+    <div class="container">
+        <h1>Domain Generator</h1>
+        <div class="controls">
+            <select id="combination-type">
+                <option value="4-letters">4 Letter Combinations</option>
+                <option value="3-letters">3 Letter Combinations</option>
+                <option value="3-chars">3 Character Combinations</option>
+                <option value="digits">Digits</option>
+            </select>
+            <input type="text" id="domain-ending" placeholder="Enter domain ending (e.g., .de)">
+            <input type="number" id="max-number" placeholder="Max number (for digits)">
+            <input type="number" id="split-size" placeholder="Split size (e.g., 500)">
+            <button onclick="generateCombinations()">Generate</button>
+        </div>
+        <textarea id="output" placeholder="Generated combinations will appear here..."></textarea>
+        <div id="split-container" class="split-container"></div>
+    </div>
+
+    <script>
+        function generateCombinations() {
+            const type = document.getElementById('combination-type').value;
+            const ending = document.getElementById('domain-ending').value;
+            const maxNumber = parseInt(document.getElementById('max-number').value, 10);
+            const splitSize = parseInt(document.getElementById('split-size').value, 10);
+            let combinations = [];
+
+            if (type === '4-letters') {
+                combinations = generateLetterCombinations(4);
+            } else if (type === '3-letters') {
+                combinations = generateLetterCombinations(3);
+            } else if (type === '3-chars') {
+                combinations = generateCharCombinations(3);
+            } else if (type === 'digits') {
+                combinations = generateDigitCombinations(maxNumber);
+            }
+
+            if (ending) {
+                combinations = combinations.map(combination => combination + ending);
+            }
+
+            document.getElementById('output').value = combinations.join('\n');
+
+            if (splitSize && splitSize > 0) {
+                displaySplitSections(combinations, splitSize);
+            }
+        }
+
+        function generateLetterCombinations(length) {
+            const letters = 'abcdefghijklmnopqrstuvwxyz';
+            let combinations = [];
+
+            function generate(prefix, length) {
+                if (length === 0) {
+                    combinations.push(prefix);
+                    return;
+                }
+                for (let i = 0; i < letters.length; i++) {
+                    generate(prefix + letters[i], length - 1);
+                }
+            }
+
+            generate('', length);
+            return combinations;
+        }
+
+        function generateCharCombinations(length) {
+            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            let combinations = [];
+
+            function generate(prefix, length) {
+                if (length === 0) {
+                    combinations.push(prefix);
+                    return;
+                }
+                for (let i = 0; i < chars.length; i++) {
+                    generate(prefix + chars[i], length - 1);
+                }
+            }
+
+            generate('', length);
+            return combinations;
+        }
+
+        function generateDigitCombinations(maxNumber) {
+            let combinations = [];
+            for (let i = 0; i <= maxNumber; i++) {
+                combinations.push(i.toString().padStart(3, '0'));
+            }
+            return combinations;
+        }
+
+        function displaySplitSections(combinations, size) {
+            const splitContainer = document.getElementById('split-container');
+            splitContainer.innerHTML = '';
+
+            for (let i = 0; i < combinations.length; i += size) {
+                const section = document.createElement('div');
+                section.className = 'split-section';
+
+                const header = document.createElement('h3');
+                header.textContent = `Combinations ${i + 1} - ${Math.min(i + size, combinations.length)}`;
+                section.appendChild(header);
+
+                const textarea = document.createElement('textarea');
+                textarea.value = combinations.slice(i, i + size).join('\n');
+                textarea.rows = 10;
+                textarea.cols = 50;
+                section.appendChild(textarea);
+
+                const copyButton = document.createElement('button');
+                copyButton.textContent = 'Copy to Clipboard';
+                copyButton.onclick = () => {
+                    navigator.clipboard.writeText(textarea.value).then(() => {
+                        alert('Combinations copied to clipboard');
+                    });
+                };
+                section.appendChild(copyButton);
+
+                const downloadButton = document.createElement('button');
+                downloadButton.textContent = 'Download as TXT';
+                downloadButton.onclick = () => {
+                    const blob = new Blob([textarea.value], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `combinations_${i + 1}-${Math.min(i + size, combinations.length)}.txt`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                };
+                section.appendChild(downloadButton);
+
+                const checkButton = document.createElement('input');
+                checkButton.type = 'checkbox';
+                checkButton.onchange = () => {
+                    if (checkButton.checked) {
+                        header.classList.add('checked');
+                    } else {
+                        header.classList.remove('checked');
+                    }
+                };
+                section.appendChild(checkButton);
+
+                splitContainer.appendChild(section);
+            }
+        }
+    </script>
+</body>
+</html>

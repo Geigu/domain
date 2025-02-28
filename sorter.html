@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domain Tools</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        header {
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px;
+            text-align: center;
+        }
+        header a {
+            color: #fff;
+            text-decoration: none;
+            margin: 0 15px;
+        }
+        .container {
+            margin-top: 20px;
+        }
+        textarea {
+            width: 80%;
+            height: 200px;
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 5px 0;
+            padding: 5px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        .controls input, .controls button {
+            margin: 5px;
+            padding: 10px 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .controls input {
+            width: 200px;
+        }
+        .controls button:hover {
+            background-color: #ddd;
+        }
+        .saved-list {
+            margin-top: 20px;
+        }
+        .saved-item {
+            margin: 5px 0;
+            padding: 5px;
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="sorter.html">Domain Filter</a>
+        <a href="generator.html">Domain Generator</a>
+    </header>
+    <div class="container">
+        <h1>Domain Filter</h1>
+        <textarea id="domain-input" placeholder="Paste your bulk search results here..."></textarea>
+        <br>
+        <div class="controls">
+            <input type="text" id="search-input" placeholder="Search...">
+            <button onclick="filterDomains()">Filter Domains</button>
+            <button onclick="copyToClipboard()">Copy to Clipboard</button>
+            <button onclick="downloadDomains()">Download as TXT</button>
+            <button onclick="sortDomains('asc')">Sort Ascending</button>
+            <button onclick="sortDomains('desc')">Sort Descending</button>
+            <button onclick="countDomains()">Count Domains</button>
+            <button onclick="toggleCategorization()">Filter Digit</button>
+            <button onclick="toggleLetterCategorization()">Filter Letter</button>
+            <input type="text" id="save-name" placeholder="Enter name to save">
+            <button onclick="saveDomains()">Save Domains</button>
+            <button onclick="downloadAllSaved()">Download All Saved</button>
+            <button onclick="resetSavedDomains()">Reset Saved Domains</button>
+            <button onclick="resetPastedDomains()">Reset Pasted Domains</button>
+            <input type="file" id="file-input" multiple>
+            <button onclick="mergeFiles()">Merge Files</button>
+            <button onclick="resetFileInput()">Reset File Input</button>
+        </div>
+        <div id="domain-container" class="domain-container"></div>
+        <div class="saved-list" id="saved-list"></div>
+    </div>
+
+    <script>
+        let originalDomains = [];
+        let categorized = false;
+        let letterCategorized = false;
+        let savedDomains = {};
+
+        function filterDomains() {
+            const input = document.getElementById('domain-input').value;
+            const lines = input.split('\n');
+            const domainContainer = document.getElementById('domain-container');
+            domainContainer.innerHTML = '';
+            originalDomains = [];
+
+            lines.forEach(line => {
+                if (line.includes('Registration')) {
+                    const domain = line.split(',')[0].trim();
+                    originalDomains.push(domain);
+                }
+            });
+
+            displayDomains(originalDomains);
+        }
+
+        function displayDomains(domains) {
+            const domainContainer = document.getElementById('domain-container');
+            domainContainer.innerHTML = '';
+
+            if (categorized) {
+                const categories = {};
+                domains.forEach(domain => {
+                    const number = parseInt(domain.match(/\d+/)[0], 10);
+                    const category = Math.floor((number - 1) / 100) * 100 + 1;
+                    if (!categories[category]) {
+                        categories[category] = [];
+                    }
+                    categories[category].push(domain);
+                });
+
+                Object.keys(categories).sort((a, b) => a - b).forEach(category => {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.className = 'domain-category';
+
+                    const categoryHeader = document.createElement('div');
+                    categoryHeader.className = 'category-header';
+                    categoryHeader.textContent = `${category} - ${parseInt(category) + 99}`;
+                    categoryHeader.onclick = () => {
+                        const content = categoryDiv.querySelector('.category-content');
+                        content.style.display = content.style.display === 'none' ? 'block' : 'none';
+                    };
+                    categoryDiv.appendChild(categoryHeader);
+
+                    const categoryContent = document.createElement('div');
+                    categoryContent.className = 'category-content';
+                    categories[category].forEach(domain => {
+                        const li = document.createElement('li');
+                        li.textContent = domain;
+                        categoryContent.appendChild(li);
+                    });
+                    categoryDiv.appendChild(categoryContent);
+
+                    domainContainer.appendChild(categoryDiv);
+                });
+            } else if (letterCategorized) {
+                const categories = {};
+                domains.forEach(domain => {
+                    const letter = domain[0].toUpperCase();
+                    if (!categories[letter]) {
+                        categories[letter] = [];
+                    }
+                    categories[letter].push(domain);
+                });
+
+                Object.keys(categories).sort().forEach(letter => {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.className = 'domain-category';
+
+                    const categoryHeader = document.createElement('div');
+                    categoryHeader.className = 'category-header';
+                    categoryHeader.textContent = letter;
+                    categoryHeader.onclick = () => {
+                        const content = categoryDiv.querySelector('.category-content');
+                        content.style.display = content.style.display === 'none' ? 'block' : 'none';
+                    };
+                    categoryDiv.appendChild(categoryHeader);
+
+                    const categoryContent = document.createElement('div');
+                    categoryContent.className = 'category-content';
+                    categories[letter].forEach(domain => {
+                        const li = document.createElement('li');
+                        li.textContent = domain;
+                        categoryContent.appendChild(li);
+                    });
+                    categoryDiv.appendChild(categoryContent);
+
+                    domainContainer.appendChild(categoryDiv);
+                });
+            } else {
+                domainContainer.style.flexDirection = 'column';
+                domains.forEach((domain, index) => {
+                    const li = document.createElement('li');
+                    li.textContent = `(${index + 1}) ${domain}`;
+                    domainContainer.appendChild(li);
+                });
+            }
+        }
+
+        function copyToClipboard() {
+            const domainContainer = document.getElementById('domain-container');
+            const domains = Array.from(domainContainer.querySelectorAll('li')).map(li => li.textContent).join('\n');
+            navigator.clipboard.writeText(domains).then(() => {
+                alert('Domains copied to clipboard');
+            });
+        }
+
+        function downloadDomains() {
+            const domainContainer = document.getElementById('domain-container');
+            const domains = Array.from(domainContainer.querySelectorAll('li')).map(li => li.textContent).join('\n');
+            const blob = new Blob([domains], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'domains.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function sortDomains(order) {
+            const domainContainer = document.getElementById('domain-container');
+            const domains = Array.from(domainContainer.querySelectorAll('li')).map(li => li.textContent.split(' ')[1]);
+            domains.sort();
+            if (order === 'desc') {
+                domains.reverse();
+            }
+            displayDomains(domains);
+        }
+
+        function countDomains() {
+            const domainContainer = document.getElementById('domain-container');
+            const count = domainContainer.querySelectorAll('li').length;
+            alert(`Total domains: ${count}`);
+        }
+
+        function toggleCategorization() {
+            categorized = !categorized;
+            letterCategorized = false;
+            displayDomains(originalDomains);
+        }
+
+        function toggleLetterCategorization() {
+            letterCategorized = !letterCategorized;
+            categorized = false;
+            displayDomains(originalDomains);
+        }
+
+        function saveDomains() {
+            const saveName = document.getElementById('save-name').value;
+            if (!saveName) {
+                alert('Please enter a name to save the domains');
+                return;
+            }
+            const domainContainer = document.getElementById('domain-container');
+            const domains = Array.from(domainContainer.querySelectorAll('li')).map(li => li.textContent);
+            if (savedDomains[saveName]) {
+                savedDomains[saveName] = savedDomains[saveName].concat(domains);
+            } else {
+                savedDomains[saveName] = domains;
+            }
+            alert(`Domains saved as "${saveName}"`);
+            updateSavedList();
+        }
+
+        function updateSavedList() {
+            const savedList = document.getElementById('saved-list');
+            savedList.innerHTML = '';
+            for (const key in savedDomains) {
+                const item = document.createElement('div');
+                item.className = 'saved-item';
+                item.textContent = key;
+                const viewButton = document.createElement('button');
+                viewButton.textContent = 'View';
+                viewButton.onclick = () => {
+                    alert(savedDomains[key].join('\n'));
+                };
+                item.appendChild(viewButton);
+                savedList.appendChild(item);
+            }
+        }
+
+        function resetSavedDomains() {
+            savedDomains = {};
+            updateSavedList();
+            alert('All saved domains have been reset');
+        }
+
+        function resetPastedDomains() {
+            document.getElementById('domain-input').value = '';
+            document.getElementById('domain-container').innerHTML = '';
+            originalDomains = [];
+            alert('Pasted domains have been reset');
+        }
+
+        function downloadAllSaved() {
+            let allDomains = [];
+            for (const key in savedDomains) {
+                allDomains = allDomains.concat(savedDomains[key]);
+            }
+            const blob = new Blob([allDomains.join('\n')], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'all_saved_domains.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function mergeFiles() {
+            const fileInput = document.getElementById('file-input');
+            const files = Array.from(fileInput.files);
+            if (files.length === 0) {
+                alert('Please select files to merge');
+                return;
+            }
+
+            let mergedContent = '';
+            let filesRead = 0;
+
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    mergedContent += event.target.result + '\n';
+                    filesRead++;
+                    if (filesRead === files.length) {
+                        document.getElementById('domain-input').value = mergedContent.trim();
+                        downloadMergedContent(mergedContent.trim());
+                        alert('Files merged successfully');
+                    }
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        function downloadMergedContent(content) {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'merged_domains.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function resetFileInput() {
+            document.getElementById('file-input').value = '';
+            alert('File input has been reset');
+        }
+
+        document.getElementById('search-input').addEventListener('input', function() {
+            const searchValue = this.value;
+            const filteredDomains = originalDomains.filter(domain => domain.includes(searchValue));
+            displayDomains(filteredDomains);
+        });
+    </script>
+</body>
+</html>
